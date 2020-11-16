@@ -35,7 +35,7 @@ class DB {
   }
 
   // Update the given employee's role
-  updateEmployeeRole(employeeId, roleId) {
+  employeeRoleUpdate(employeeId, roleId) {
     return this.connection.query(
       "UPDATE employee SET role_id = ? WHERE id = ?",
       [roleId, employeeId]
@@ -69,6 +69,7 @@ class DB {
 
   // Find all departments, join with employees and roles and sum up utilized department budget
   findAllDepartments() {
+    console.log("Find all employees!")
     return this.connection.query(
       "SELECT department.id, department.name, SUM(role.salary) AS utilized_budget FROM employee LEFT JOIN role on employee.role_id = role.id LEFT JOIN department on role.department_id = department.id GROUP BY department.id, department.name;"
     );

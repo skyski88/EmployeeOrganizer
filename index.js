@@ -1,6 +1,7 @@
 const { prompt } = require("inquirer");
 const logo = require("asciiart-logo");
 const db = require("./db");
+const inquirer = require("inquirer");
 require("console.table");
 
 init();
@@ -14,7 +15,7 @@ function init() {
 }
 
 async function loadMainPrompts() {
-  const { choice } = await prompt([
+  inquirer.prompt([
     {
       type: "list",
       name: "choice",
@@ -74,70 +75,77 @@ async function loadMainPrompts() {
         }
       ]
     }
-  ]);
-
-  switch (choice) {
-    case "VIEW_EMPLOYEES":
-      return viewEmployees();
-    case "VIEW_EMPLOYEES_BY_DEPARTMENT":
-      return viewEmployeesByDepartment();
-    case "VIEW_EMPLOYEES_BY_MANAGER":
-      return viewEmployeesByManager();
-    case "ADD_EMPLOYEE":
-      return addEmployee();
-    case "REMOVE_EMPLOYEE":
-      return removeEmployee();
-    case "Employee_Role_Update":
-      return (employeeRoleUpdate);
-    case "Manager_Employee_Update":
-      return (managerEmployeeUpdate);
-    case "View_All_Roles":
-      return (viewAllRoles);
-    case "Add_Role":
-      return (addRole);
-    case "Remove_Role":
-      return (removeRole);
-    case "View_Departments":
-      return (viewDepartments);
-    case "Department_Removal":
-      return (departmentRemoval);
-    default:
-      return quit();
-  }
-}
-
-async function viewEmployees() {
-  const employees = await db.findAllEmployees();
-
-  console.log("\n");
-  console.table(employees);
-
-  loadMainPrompts();
-}
-
-async function viewEmployeesByDepartment() {
-  const departments = await db.findAllDepartments();
-
-  const departmentChoices = departments.map(({ id, name }) => ({
-    name: name,
-    value: id
-  }));
-
-  const { departmentId } = await prompt([
-    {
-      type: "list",
-      name: "departmentId",
-      message: "Which department would you like to see employees for?",
-      choices: departmentChoices
+  ]).then(function (response) {
+    console.log(response.choice)
+    switch (response.choice) {
+      case "VIEW_EMPLOYEES":
+        return viewEmployees();
+      case "VIEW_EMPLOYEES_BY_DEPARTMENT":
+        return viewEmployeesByDepartment();
+      case "VIEW_EMPLOYEES_BY_MANAGER":
+        return viewEmployeesByManager();
+      case "ADD_EMPLOYEE":
+        return addEmployee();
+      case "REMOVE_EMPLOYEE":
+        return removeEmployee();
+      case "Manager_Employee_Update":
+        return (managerEmployeeUpdate);
+      case "View_All_Roles":
+        return (viewAllRoles);
+      case "Add_Role":
+        return (addRole);
+      case "Remove_Role":
+        return (removeRole);
+      case "Employee_Role_Update":
+        return (employeeRoleUpdate);
+      case "View_Departments":
+        return (viewDepartments);
+      case "Department_Removal":
+        return (departmentRemoval);
+      default:
+        return quit();
     }
-  ]);
+  })
+}
 
-  const employees = await db.findAllEmployeesByDepartment(departmentId);
+function viewEmployees() {
+  db.findAllEmployees()
+    .then(function (data) {
+      console.log("\n");
+      console.table(data);
+      loadMainPrompts();
+    })
 
-  console.log("\n");
-  console.table(employees);
+}
 
-  loadMainPrompts();
+function viewEmployeesByDepartment() {
+  db.findAllDepartments()
+    .then(function (departments) {
+      const departmentChoices = departments.map(({ id, name }) => ({
+        name: name,
+        value: id
+      }));
+
+
+
+
+      inquirer.prompt([
+        {
+          type: "list",
+          name: "departmentId",
+          message: "Which department would you like to see employees for?",
+          choices: departmentChoices
+        }
+      ]).then(function (store) {
+        db.findAllEmployeesByDepartment(store.departmentId).then(function (employees) {
+          console.log("\n");
+          console.table(employees);
+
+          loadMainPrompts();
+        })
+      })
+    })
+
 }
 
 async function viewEmployeesByManager() {
@@ -170,20 +178,55 @@ async function viewEmployeesByManager() {
   loadMainPrompts();
 }
 
-async function addEmployee() {
-  const roles = await db.findAllRoles();
-  const employees = await db.findAllEmployees();
+function addEmployee() {
+  db.findAllRoles().then(function (roles) {
+    const roleChoices = roles.map(({ id, title }) => ({
+      name: title,
+      value: id
+    }));
+    db.findAllEmployees().then(function (managers) {
+      const managerChoices = managers.map(({ id, first_name, last_name }) => ({
+        name: `${first_name} ${last_name}`,
+        value: id
+      }));
+      inquirer.prompt([
+        {
+          name: "first_name",
+          message: "What is the employee's first name?"
+        },
+        {
+          name: "last_name",
+          message: "What is the employee's last name?"
+        },
+        {
+          name: "role_id",
+          message: "Employee new role.",
+          type: "list",
+          choices: roleChoices
+        },
+        {
+          name: "manager_id",
+          message: "Employee's new manager.",
+          type: "list",
+          choices: managerChoices
+        }
+      ]).then(function (employeeData) {
+        let employee = {
+          first_name: employeeData.first_name,
+          last_name: employeeData.last_name,
+          role_id: employeeData.role_id,
+          manager_id: employeeData.manager_id
+        }
+        db.createEmployee(employee).then(function (newEmployee) {
+          console.log("employee added", newEmployee)
+          loadMainPrompts();
+        })
+      })
+    })
+  })
 
-  const employee = await prompt([
-    {
-      name: "first_name",
-      message: "What is the employee's first name?"
-    },
-    {
-      name: "last_name",
-      message: "What is the employee's last name?"
-    }
-  ]);
+
+
 }
 
 
@@ -211,44 +254,43 @@ async function removeEmployee() {
   loadMainPrompts();
 }
 
-async function employeeRoleUpdate() {
-  const employees = await db.findAllEmployees();
+function employeeRoleUpdate() {
+  
+  db.findAllEmployees().then(function (employees) {
+    const employeeChoices = employees.map(({ id, first_name, last_name }) => ({
+      name: `${first_name} ${last_name}`,
+      value: id
+    }));
 
-  const employeeChoices = employees.map(({ id, first_name, last_name }) => ({
-    name: `${first_name} ${last_name}`,
-    value: id
-  }));
+    db.findAllRoles().then(function (roles) {
+      const roleChoices = roles.map(({ id, title }) => ({
+        name: title,
+        value: id
+      }));
+      console.log(employeeChoices, roleChoices)
+      inquirer.prompt([
+        {
+          name: "employeeId",
+          message: "Which employee's role needs updated?",
+          type: "list",
+          choices: employeeChoices
+        },
+        {
+          name: "roleId",
+          message: "What is the role of this employee?",
+          type: "list",
+          choices: roleChoices
+        }
+      ]).then(function(response) {
+        db.employeeRoleUpdate(response.employeeId, response.roleId).then(function(updateEmployee){
 
-  const { employeeId } = await prompt([
-    {
-      type: "list",
-      name: "employeeId",
-      message: "Which employee's role needs updated?",
-      choices: employeeChoices
-    }
-  ]);
+          console.log("Updated role of employee", updateEmployee)
 
-  const roles = await db.findAllRoles();
-
-  const roleChoices = roles.map(({ id, title }) => ({
-    name: title,
-    value: id
-  }));
-
-  const { roleId } = await prompt([
-    {
-      type: "list",
-      name: "roleId",
-      message: "What is the role of this employee?",
-      choices: roleChoices
-    }
-  ]);
-
-  await db.employeeRoleUpdate(employeeId, roleId);
-
-  console.log("Updated role of employee");
-
-  loadMainPrompts();
+          loadMainPrompts();
+        })
+      })
+    })
+  })
 }
 
 async function managerEmployeeUpdate() {
